@@ -171,7 +171,7 @@ public class TransactionEventProducer implements Runnable{
     }
     public static void main(String[] args) throws Exception {
         TransactionEventProducer producer = new TransactionEventProducer();
-        for (int i = 0; i < 1; i++)
+        for (int i = 0; i < 10; i++)
             producer.BatchDeal();
         System.out.println("--------------------------------------------------");
     }

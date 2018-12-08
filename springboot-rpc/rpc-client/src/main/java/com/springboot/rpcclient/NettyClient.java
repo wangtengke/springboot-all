@@ -1,8 +1,12 @@
-package com.wtk.nettyclient;
+package com.springboot.rpcclient;
 
-import com.wtk.nettyclient.handler.NettyClientHandler;
-import com.wtk.nettyconfig.nettycoder.*;
-import com.wtk.nettyconfig.nettyconfig.NettyConfig;
+import com.springboot.rpcclient.handler.NettyClientHandler;
+import com.springboot.rpcserver.config.nettycoder.Job;
+import com.springboot.rpcserver.config.nettycoder.ObjectDecoder;
+import com.springboot.rpcserver.config.nettycoder.ObjectEncoder;
+import com.springboot.rpcserver.config.nettyconfig.NettyConfig;
+import com.springboot.rpcserver.request.RpcRequest;
+import com.springboot.rpcserver.response.RpcResponse;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
@@ -29,6 +33,8 @@ import java.util.concurrent.TimeUnit;
 public class NettyClient {
     @Autowired
     private NettyConfig nettyConfig;
+
+    private RpcResponse response;
 
     public void start() {
         int port = nettyConfig.getPort();
@@ -65,6 +71,38 @@ public class NettyClient {
         } finally {
             workerGroup.shutdownGracefully();
 
+        }
+    }
+
+    public RpcResponse send(RpcRequest request) throws Exception {
+        int port = nettyConfig.getPort();
+        String address = nettyConfig.getAddress();
+        EventLoopGroup group = new NioEventLoopGroup();
+        try {
+            Bootstrap bootstrap = new Bootstrap();
+            bootstrap.group(group)
+                    .channel(NioSocketChannel.class)
+                    .handler(new ChannelInitializer<SocketChannel>() {
+                        @Override
+                        public void initChannel(SocketChannel channel) throws Exception {
+                            channel.pipeline()
+                                    .addLast(new ObjectEncoder<>(RpcRequest.class)) // 将 RPC 请求进行编码（为了发送请求）
+                                    .addLast(new ObjectDecoder<>(RpcResponse.class)) // 将 RPC 响应进行解码（为了处理响应）
+                                    .addLast(new NettyClientHandler()); // 使用 RpcClient 发送 RPC 请求
+                        }
+                    })
+                    .option(ChannelOption.SO_KEEPALIVE, true);
+
+            ChannelFuture future = bootstrap.connect(address, port).sync();
+            future.channel().writeAndFlush(request).sync();
+
+
+            if (response != null) {
+                future.channel().closeFuture().sync();
+            }
+            return response;
+        } finally {
+            group.shutdownGracefully();
         }
     }
 }
