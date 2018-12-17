@@ -30,7 +30,7 @@ public class JpaController {
         return userRepository.findOne(Example.of(condition)).orElse(new User());
     }
 
-    @RequestMapping("/save")
+    @PostMapping("/save")
     public void saveUser(@RequestBody User user){
         userRepository.save(user);
     }
